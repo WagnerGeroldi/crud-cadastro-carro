@@ -1,31 +1,38 @@
-const express = require("express");
+const express = require('express');
 const path = require("path");
-var cors = require('cors')
+const cors = require('cors');
+
 const db = require("./database");
 const routes = require("./routes");
 
 const app = express();
-//conectar ao banco de dados
-db.connect();
 
+app.use(cors());
 
-
-app.use(cors())
-//definindo o template
+// Definindo o template EJS com caminho absoluto seguro para a Vercel
 app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views")); // para encontrar dentro do src
+app.set("views", path.join(process.cwd(), "src", "views"));
 
-//midleware para o server receber os dados do formulario
+// Middleware para o server receber os dados do formulário
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
-//gerar itens publicos
-const publicFolder = path.join(__dirname, "public"); //public é a pasta
-const expressPublic = express.static(publicFolder); // usar arquivos publicos
-app.use(expressPublic);
+// Arquivos públicos (CSS e JS dentro de src/public)
+app.use(express.static(path.join(process.cwd(), "src", "public")));
 
-//rotas
+// Garante conexão com o banco antes de processar as rotas na Vercel
+app.use(async (req, res, next) => {
+  await db.connect();
+  next();
+});
+
+// Rotas
 app.use("/", routes);
 
-// server execute
-const port = process.env.PORT || 8000;
-app.listen(port, () => console.log(`Servidor rodadando na porta ${port}`));
+// Executa localmente, mas na Vercel apenas exporta o app
+if (process.env.NODE_ENV !== "production") {
+  const port = process.env.PORT || 8000;
+  app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
+}
+
+module.exports = app;
